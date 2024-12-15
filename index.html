@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elevator CO2 Prediction</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: url('bg1.jpg') no-repeat center center fixed;
+      background-size: cover;
+      line-height: 1.6;
+    }
+    .container:hover {
+      transform: scale(1.05); /* Light zoom effect */
+    }
+    input:focus {
+      outline: none;
+      border-color: #3498db;
+      transform: scale(1.03); /* Light zoom effect */
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+      position: relative;
+      left: -280px; /* Adjust this value for horizontal positioning */
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 25px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #34495e;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #bdc3c7;
+      border-radius: 5px;
+      transition: border-color 0.3s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background: #3498db;
+      color: #fff;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    .alert {
+      margin-top: 20px;
+    }
+    .loading-spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1.5s linear infinite;
+      margin: auto;
+    }
+    .typing-effect {
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      color: #34495e;
+      background-color: #e8f4f8;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h2 class="text-center">Elevator CO2 Prediction</h2>
+    <form id="predictionForm">
+      <div class="form-group">
+        <label for="hour">Hour:</label>
+        <input type="number" id="hour" name="hour" required>
+      </div>
+      <div class="form-group">
+        <label for="day_of_week">Day of Week (0 = Sunday, 6 = Saturday):</label>
+        <input type="number" id="day_of_week" name="day_of_week" min="0" max="6" required>
+      </div>
+      <div class="form-group">
+        <label for="total_weight">Total Weight (kg):</label>
+        <input type="number" id="total_weight" name="total_weight" required>
+      </div>
+      <div class="form-group">
+        <label for="floor_distance">Floor:</label>
+        <input type="number" id="floor_distance" name="floor_distance" required>
+      </div>
+      <div class="form-group">
+        <label for="speed">Speed (m/s):</label>
+        <input type="number" id="speed" name="speed" step="0.1" required>
+      </div>
+      <div class="form-group">
+        <label for="door_operations">Door Operations:</label>
+        <input type="number" id="door_operations" name="door_operations" required>
+      </div>
+      <div class="form-group">
+        <label for="temperature">Temperature (°C):</label>
+        <input type="number" id="temperature" name="temperature" required>
+      </div>
+      <button type="submit">Predict</button>
+    </form>
+
+    <div id="co2-output" class="alert alert-info text-center" style="display: none;">
+      <h4>Predicted CO2 Emission: <span id="predicted-co2"></span></h4>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h4 class="text-center">AI Generated Recommendations</h4>
+      </div>
+      <div class="card-body">
+        <div id="spinner-container" style="text-align: center; display: none;">
+          <div class="loading-spinner"></div>
+        </div>
+        <div id="ai-suggestions" class="typing-effect" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('predictionForm');
+      const predictedCo2Element = document.getElementById('predicted-co2');
+      const co2Output = document.getElementById('co2-output');
+      const aiSuggestionsElement = document.getElementById('ai-suggestions');
+      const spinnerContainer = document.getElementById('spinner-container');
+
+      function typeText(elementId, text, speed) {
+        const element = document.getElementById(elementId);
+        let index = 0;
+        function type() {
+          if (index < text.length) {
+            element.textContent += text.charAt(index);
+            index++;
+            setTimeout(type, speed);
+          }
+        }
+        type();
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        predictedCo2Element.textContent = '';
+        aiSuggestionsElement.style.display = 'none';
+        aiSuggestionsElement.textContent = '';
+        co2Output.style.display = 'none';
+        spinnerContainer.style.display = 'block';
+
+        const data = {
+          hour: parseInt(document.getElementById('hour').value),
+          day_of_week: parseInt(document.getElementById('day_of_week').value),
+          total_weight: parseInt(document.getElementById('total_weight').value),
+          floor_distance: parseInt(document.getElementById('floor_distance').value),
+          speed: parseFloat(document.getElementById('speed').value),
+          door_operations: parseInt(document.getElementById('door_operations').value),
+          temperature: parseInt(document.getElementById('temperature').value),
+        };
+
+        try {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          const response = await fetch('/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Prediction Error: ${response.statusText}`);
+          }
+          const result = await response.json();
+
+          spinnerContainer.style.display = 'none';
+          co2Output.style.display = 'block';
+          predictedCo2Element.textContent = result.prediction.toFixed(2);
+          aiSuggestionsElement.style.display = 'block';
+          typeText('ai-suggestions', result.suggestions, 50);
+
+        } catch (error) {
+          spinnerContainer.style.display = 'none';
+          aiSuggestionsElement.style.display = 'block';
+          aiSuggestionsElement.textContent = `Error: ${error.message}`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
